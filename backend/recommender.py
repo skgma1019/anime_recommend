@@ -1,88 +1,68 @@
 # recommender.py
 
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import linear_kernel
-import numpy as np
+from model_loader import load_all_models
+from jikan_client import fetch_anime_details
+from fastapi import HTTPException
+import asyncio
 
-class RecommenderModel:
+class RecommenderService:
     """
-    모든 추천 로직과 데이터를 캡슐화하는 클래스
+    추천 모델을 관리하고 API 로직을 실행하는 서비스 레이어
     """
     def __init__(self):
-        # 클래스 속성으로 초기화
-        self.df = None
-        self.cosine_sim = None
-        self.indices = None
-        self.behavioral_map = {}
+        print("🚀 Recommender Service 초기화...")
+        model_data = load_all_models()
         
-        # 1. 콘텐츠 기반 모델 로드 (anime-dataset-2023.csv)
-        try:
-            print("📦 Content-Based 모델 로딩 및 설정...")
-            self.df = pd.read_csv('../csv/anime-dataset-2023.csv') # self.df 에 할당
-            self.df.rename(columns={'Name': 'title', 'Synopsis': 'synopsis', 'Genres': 'genres',}, inplace=True)
-            self.df.dropna(subset=['title', 'synopsis', 'genres'], inplace=True)
-            self.df.reset_index(drop=True, inplace=True)
+        if model_data is None:
+            self.is_loaded = False
+            self.df = None
+            return
 
-            self.df['synopsis'] = self.df['synopsis'].fillna('')
-            self.df['genres'] = self.df['genres'].fillna('')
-
-            def clean_text(text):
-                if pd.isna(text):
-                    return ''
-                return str(text).lower().replace('|', ' ')
-
-            self.df['soup'] = (self.df['synopsis'] + ' ' + self.df['genres']) 
-            self.df['soup'] = self.df['soup'].apply(clean_text)
-
-            tfidf = TfidfVectorizer(max_features=5000, stop_words='english', ngram_range=(1, 2), min_df=2,)
-            tfidf_matrix = tfidf.fit_transform(self.df['soup'])
-            self.cosine_sim = linear_kernel(tfidf_matrix, tfidf_matrix) # self.cosine_sim 에 할당
-            self.indices = pd.Series(self.df.index, index=self.df['title']).drop_duplicates() # self.indices 에 할당
-            print("   ✓ 콘텐츠 기반 모델 생성 완료.")
-        
-        except Exception as e:
-            print(f"❌ 콘텐츠 모델 오류: {e}")
-            self.df = None # 실패 시 self.df만 None으로 설정
+        # 모델 로드 성공 시, 모든 데이터를 클래스 속성으로 저장
+        self.df = model_data['df']
+        self.cosine_sim = model_data['cosine_sim']
+        self.indices = model_data['indices']
+        self.behavioral_map = model_data['behavioral_map']
+        self.is_loaded = True
 
 
-        # 2. 행동 기반 모델 로드 (recommend_anime_5000.csv)
-        try:
-            print("📦 Behavioral 모델 로딩 및 설정...")
-            df_rec = pd.read_csv('../csv/recommend_anime_5000.csv')
-            
-            for index, row in df_rec.iterrows():
-                title_1 = row['Anime_1_Title']
-                title_2 = row['Anime_2_Title']
-                
-                if title_1 not in self.behavioral_map:
-                    self.behavioral_map[title_1] = set()
-                self.behavioral_map[title_1].add(title_2)
-
-            for key in self.behavioral_map:
-                self.behavioral_map[key] = list(self.behavioral_map[key])
-            print("   ✓ 행동 기반 맵 생성 완료.")
-
-        except Exception as e:
-            print(f"❌ 행동 모델 오류: {e}")
-
-
-    def get_hybrid_recommendations(self, title: str, top_n: int = 10):
+    def search_anime_titles(self, keyword: str, top_n: int = 10):
         """
-        주어진 제목에 대해 하이브리드 추천 결과를 반환합니다.
+        데이터베이스에서 키워드를 포함하는 애니메이션 제목을 검색합니다.
         """
         if self.df is None:
-            return None # 모델 로드 실패 시
+            return []
+
+        results = self.df[
+            self.df['title'].str.contains(keyword, case=False, na=False)
+        ]
+
+        if not results.empty:
+            # CSV에 score 컬럼이 있다고 가정하고 점수순으로 정렬
+            if 'score' in results.columns:
+                 return results.sort_values(by='score', ascending=False)['title'].head(top_n).tolist()
+            else:
+                 return results['title'].head(top_n).tolist()
+        
+        return []
+
+
+    def get_hybrid_recommendations(self, title: str, top_n: int = 20):
+        """
+        주어진 제목에 대해 하이브리드 추천 결과 (제목 리스트)를 반환합니다.
+        """
+        if self.df is None:
+            return None
 
         final_recommendations = []
         
-        # 1. 행동 기반 추천 (새 CSV, 우선순위)
+        # 1. 행동 기반 추천
         behavioral_recs = self.behavioral_map.get(title, [])
         for rec_title in behavioral_recs:
             if rec_title != title and rec_title not in final_recommendations:
                 final_recommendations.append(rec_title)
 
-        # 2. 콘텐츠 기반 추천 (기존 모델, 보강)
+        # 2. 콘텐츠 기반 추천
         try:
             idx = self.indices[title]
             sim_scores = sorted(list(enumerate(self.cosine_sim[idx])), key=lambda x: x[1], reverse=True)
@@ -93,10 +73,38 @@ class RecommenderModel:
                 if rec_title not in final_recommendations:
                     final_recommendations.append(rec_title)
 
-            return final_recommendations[:top_n]
+            return final_recommendations[:top_n] 
 
         except KeyError:
-            # 콘텐츠 모델에서 제목을 찾지 못했지만, 행동 모델 결과는 있을 수 있음
             if final_recommendations:
                 return final_recommendations[:top_n]
-            return None # 완전히 제목을 찾지 못함
+            return None
+
+
+    async def get_enriched_recommendations(self, title: str, top_n: int = 10):
+        """
+        하이브리드 추천 목록을 만든 후, Jikan API로 최신 정보를 보강하여 반환 (안정화된 버전)
+        """
+        candidate_titles = self.get_hybrid_recommendations(title, top_n=20) 
+
+        if candidate_titles is None:
+            return None
+
+        final_list = []
+        
+        for i, rec_title in enumerate(candidate_titles):
+            # Jikan API Rate Limit을 피하기 위한 딜레이 (0.5초)
+            if i > 0:
+                 await asyncio.sleep(0.5) 
+            
+            # jikan_client.py의 비동기 함수 호출
+            enriched_data = await fetch_anime_details(rec_title)
+            
+            if enriched_data and len(final_list) < top_n:
+                final_list.append(enriched_data)
+                
+            if len(final_list) >= top_n:
+                break
+            
+        print(f"✅ Jikan API 정보 보강 완료. 최종 {len(final_list)}개 반환.")
+        return final_list
