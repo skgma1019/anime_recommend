@@ -2,10 +2,12 @@
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-# recommender.py 에서 서비스 클래스를 가져옵니다.
+#모듈 가져오기
 from recommender import RecommenderService
-
-
+from db import Base, engine, get_db
+from user_router import router as user_router 
+#DB 테이블 생성
+Base.metadata.create_all(bind=engine)
 # --- 1. FastAPI 앱 인스턴스 생성 및 설정 ---
 app = FastAPI() 
 
@@ -28,8 +30,14 @@ try:
 except Exception as e:
     print(f"🚨 모델 초기화 실패: {e}. 서버는 실행되지만 API는 작동하지 않습니다.")
 
+#user_router 모듈 연결
+app.include_router(
+    user_router,
+    prefix="/users",  # 👈 2. 이 라우터의 모든 주소 앞에 "/users"를 붙임
+    tags=["Users"]    # 👈 3. /docs 페이지에서 "Users" 그룹으로 묶어줌
+)
 
-# --- 3. API 엔드포인트 정의 ---
+# --- 3. api 엔드포인트 ---
 
 #추천 시스템
 @app.get("/recommend")
@@ -52,6 +60,7 @@ async def recommend_anime(title: str):
 #검색 시스템
 @app.get("/search")
 def search_anime(keyword: str):
+
     """
     애니메이션 제목 검색 및 자동 완성 기능을 제공하는 API
     """
@@ -65,3 +74,4 @@ def search_anime(keyword: str):
         raise HTTPException(status_code=404, detail=f"'{keyword}' 키워드로 검색된 제목이 없습니다.")
 
     return {"titles": matching_titles}
+
