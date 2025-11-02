@@ -1,14 +1,15 @@
 # user_router.py
 
 # 1. 필요한 모든 모듈을 import 합니다.
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
 import schemas
 import crud
 import auth
-from db import get_db
+from db import get_db, User
+from typing import List
 
 # 2. 'app = FastAPI()' 대신 'APIRouter()'를 사용합니다.
 router = APIRouter()
@@ -112,3 +113,54 @@ def delete_user_me(
     
     # 2. 삭제된 사용자 정보 반환
     return deleted_user
+
+# 8. 즐겨찾기 하기
+@router.post("/me/favorites", response_model=schemas.UserFavorite)
+def create_favorite_for_user(
+    favorite: schemas.UserFavoriteCreate, # 1. Body로 anime_id, title 등 받기
+    db: Session = Depends(get_db),
+    current_user: User = Depends(auth.get_current_user) # 2. 토큰으로 "나" 확인
+):
+    # 3. 중복 체크
+    db_favorite = crud.get_favorite_by_anime_id(
+        db, user_id=current_user.id, anime_id=favorite.anime_id
+    )
+    if db_favorite:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="이미 즐겨찾기에 추가된 애니메이션입니다."
+        )
+    
+    # 4. CRUD를 통해 DB에 생성
+    return crud.create_user_favorite(
+        db=db, favorite=favorite, user_id=current_user.id
+    )
+
+# 9. 즐겨찾기 목록 조회 엔드포인트
+@router.get("/me/favorites", response_model=List[schemas.UserFavorite])
+def read_user_favorites(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(auth.get_current_user) # 1. 토큰으로 "나" 확인
+):
+    # 2. CRUD를 통해 DB에서 "내" 목록 조회
+    return crud.get_user_favorites(db, user_id=current_user.id)
+
+# 10. 즐겨찾기 삭제 엔드포인트
+@router.delete("/me/favorites/{anime_id}", response_model=schemas.UserFavorite)
+def delete_favorite_for_user(
+    anime_id: int, # 1. URL 경로에서 anime_id 받기
+    db: Session = Depends(get_db),
+    current_user: User = Depends(auth.get_current_user) # 2. 토큰으로 "나" 확인
+):
+    # 3. 삭제할 항목이 DB에 있는지 (내 것이 맞는지) 확인
+    db_favorite = crud.get_favorite_by_anime_id(
+        db, user_id=current_user.id, anime_id=anime_id
+    )
+    if db_favorite is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="즐겨찾기 목록에 없는 애니메이션입니다."
+        )
+        
+    # 4. CRUD를 통해 DB에서 삭제
+    return crud.delete_user_favorite(db, db_favorite=db_favorite)

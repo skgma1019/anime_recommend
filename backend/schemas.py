@@ -28,3 +28,30 @@ class Token(BaseModel):
 # --- 4. 데이터 수정 스키마 ---
 class UserUpdatePassword(BaseModel):
     new_password: str
+
+class Anime(BaseModel):
+    anime_id: int
+    title: str
+    genres: str | None = None
+    image_url: str | None = None
+    score: float| None = None
+
+    favorites_count: int = 0
+    
+    class Config:
+        orm_mode = True
+
+# 즐겨찾기를 '생성'할 때 Body로 받을 정보 (POST /users/me/favorites)
+class UserFavoriteCreate(BaseModel):
+    anime_id: int
+    title: str
+    image_url: str | None = None
+
+# 즐겨찾기 정보를 '응답'할 때 사용할 기본 모델
+class UserFavorite(UserFavoriteCreate):
+    id: int       # DB에서 생성된 고유 ID
+    user_id: int  # 누구의 즐겨찾기인지
+
+    class Config:
+        orm_mode = True
+

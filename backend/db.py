@@ -1,9 +1,10 @@
 # db.py
 import os  # 1. os 라이브러리 가져오기
 from dotenv import load_dotenv  # 2. dotenv 라이브러리 가져오기
-from sqlalchemy import create_engine, Column, Integer, String, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, Float, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import relationship
 
 # -------------------------------------------------
 # 1. DB 접속 설정 (PostgreSQL)
@@ -61,3 +62,24 @@ class User(Base):
     
     # is_active: 활성 계정 여부 (예: 탈퇴 처리)
     is_active = Column(Boolean, default=True)
+    
+    favorites = relationship("UserFavorite", back_populates="owner")
+
+class UserFavorite(Base):
+    __tablename__ = "user_favorites"
+
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # 1. "누가" 찜했는지 (users 테이블의 id와 연결)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    # 2. "무엇을" 찜했는지 (recommender.df의 anime_id)
+    anime_id = Column(Integer, index=True)
+    
+    # 3. 목록을 보여줄 때 사용할 정보 (DB에 따로 저장)
+    title = Column(String)
+    image_url = Column(String, nullable=True)
+
+    # User 모델과 UserFavorite 모델을 연결 (선택 사항이지만 권장됨)
+    owner = relationship("User", back_populates="favorites")
+

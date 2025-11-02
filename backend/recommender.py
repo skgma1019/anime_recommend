@@ -108,3 +108,21 @@ class RecommenderService:
             
         print(f"✅ Jikan API 정보 보강 완료. 최종 {len(final_list)}개 반환.")
         return final_list
+    
+    # recommender.py (RecommenderService 클래스 내부에 추가)
+
+    # ... (get_enriched_recommendations 함수 아래에 추가) ...
+
+    def get_all_animes(self, skip: int = 0, limit: int = 20):
+        """
+        전체 애니메이션 목록을 skip, limit을 이용해 잘라서 반환합니다.
+        (self.df를 사용)
+        """
+        if self.df is None:
+            return []
+        
+        # .iloc[start:end] - DataFrame을 정수 위치로 자릅니다.
+        paginated_df = self.df.iloc[skip : skip + limit]
+        
+        # DataFrame을 Python 딕셔너리 리스트로 변환하여 반환
+        return paginated_df.to_dict('records')

@@ -14,12 +14,14 @@ def load_all_models():
         'indices': None,
         'behavioral_map': {}
     }
-    
+    NO_IMAGE_URL = "../images/no_img.png"
+
     # 1. 콘텐츠 기반 모델 로드 (anime-dataset-2023.csv)
     try:
         df = pd.read_csv('../csv/anime-dataset-2023.csv')
-        df.rename(columns={'Name': 'title', 'Synopsis': 'synopsis', 'Genres': 'genres',}, inplace=True)
-        df.dropna(subset=['title', 'synopsis', 'genres'], inplace=True)
+        df.rename(columns={'Name': 'title', 'Synopsis': 'synopsis', 'Genres': 'genres', 'Image URL': 'image_url'}, inplace=True)
+        df.dropna(subset=['title', 'synopsis', 'genres',], inplace=True)
+        df['image_url'] = df['image_url'].fillna(NO_IMAGE_URL)
         df.reset_index(drop=True, inplace=True)
 
         df['synopsis'] = df['synopsis'].fillna('')
