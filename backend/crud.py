@@ -3,9 +3,8 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from db import User  # db.py의 User 모델
-from schemas import UserCreate # schemas.py의 UserCreate 모델
-from db import User, UserFavorite
-from schemas import UserFavoriteCreate
+import schemas # schemas.py의 UserCreate 모델
+from db import User, UserFavorite, Feedback
 
 #이메일로 사용자가 있는지 확인
 def get_user_by_email(db: Session, email: str):
@@ -13,7 +12,7 @@ def get_user_by_email(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()
 
 # 새로운 사용자 생성
-def create_user(db: Session, user: UserCreate, hashed_password: str):
+def create_user(db: Session, user: schemas.UserCreate, hashed_password: str):
     # 1. DB 모델 객체 생성
     db_user = User(
         email=user.email, 
@@ -63,7 +62,7 @@ def get_user_favorites(db: Session, user_id: int):
     return db.query(UserFavorite).filter(UserFavorite.user_id == user_id).all()
 
 #새로운 즐겨찾기를 DB에 생성
-def create_user_favorite(db: Session, favorite: UserFavoriteCreate, user_id: int):
+def create_user_favorite(db: Session, favorite: schemas.UserFavoriteCreate, user_id: int):
     # 1. 스키마(favorite)와 user_id를 합쳐서 DB 모델 객체 생성
     db_favorite = UserFavorite(
         **favorite.model_dump(),  # anime_id, title, image_url 포함
@@ -96,6 +95,7 @@ def get_favorites_count_by_anime_id(db: Session, anime_id: int):
     return count
 
 def get_top_favorite_anime_ids(db: Session, limit: int = 20) -> list[tuple[int, int]]:
+
     """
     즐겨찾기 횟수를 기준으로 상위 N개의 (anime_id, count) 리스트를 반환합니다.
     """
@@ -115,3 +115,16 @@ def get_top_favorite_anime_ids(db: Session, limit: int = 20) -> list[tuple[int, 
     )
     
     return results
+
+def create_user_feedback(db: Session, feedback: schemas.FeedbackCreate, user_id: int):
+    """
+    사용자의 피드백을 DB에 저장합니다.
+    """
+    db_feedback = Feedback(
+        **feedback.model_dump(), 
+        owner_id=user_id
+    )
+    db.add(db_feedback)
+    db.commit()
+    db.refresh(db_feedback)
+    return db_feedback

@@ -55,3 +55,17 @@ class UserFavorite(UserFavoriteCreate):
     class Config:
         orm_mode = True
 
+class FeedbackBase(BaseModel):
+    recommendation_type: str # 어떤 종류의 추천인지 (예: 'personal', 'title_based')
+    is_satisfied: bool       # 만족 여부 (True/False)
+    feedback_text: str | None = None # (선택) 사용자 코멘트
+
+class FeedbackCreate(FeedbackBase):
+    pass
+
+class Feedback(FeedbackBase):
+    id: int
+    owner_id: int
+
+    class Config:
+        orm_mode = True

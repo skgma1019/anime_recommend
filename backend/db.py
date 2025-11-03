@@ -83,3 +83,14 @@ class UserFavorite(Base):
     # User 모델과 UserFavorite 모델을 연결 (선택 사항이지만 권장됨)
     owner = relationship("User", back_populates="favorites")
 
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    recommendation_type = Column(String, index=True)
+    is_satisfied = Column(Boolean, default=True)
+    feedback_text = Column(String, nullable=True)
+    
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    
+    owner = relationship("User")

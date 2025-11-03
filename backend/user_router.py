@@ -8,6 +8,7 @@ from datetime import timedelta
 import schemas
 import crud
 import auth
+from auth import get_current_user
 from db import get_db, User
 from typing import List
 from recommender import RecommenderService
@@ -208,3 +209,14 @@ async def get_personalized_recommendations(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jikan API로 정보를 보강하지 못했습니다.")
 
     return {"recommendations": final_recommendations}
+
+@router.post("/me/feedback", response_model=schemas.Feedback)
+def create_feedback_for_user(
+    feedback: schemas.FeedbackCreate, # 👈 1. 요청 Body
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user) # 👈 2. 인증
+):
+    """
+    현재 로그인한 사용자의 추천 피드백을 저장합니다.
+    """
+    return crud.create_user_feedback(db=db, feedback=feedback, user_id=current_user.id)
