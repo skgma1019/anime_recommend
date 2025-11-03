@@ -10,7 +10,8 @@ import crud
 import auth
 from db import get_db, User
 from typing import List
-
+from recommender import RecommenderService
+from dependencies import get_recommender_service
 # 2. 'app = FastAPI()' 대신 'APIRouter()'를 사용합니다.
 router = APIRouter()
 
@@ -164,3 +165,46 @@ def delete_favorite_for_user(
         
     # 4. CRUD를 통해 DB에서 삭제
     return crud.delete_user_favorite(db, db_favorite=db_favorite)
+
+@router.get("/me/recommendations") 
+async def get_personalized_recommendations(
+    db: Session = Depends(get_db),
+    # 1. 로그인한 사용자 확인
+    current_user: User = Depends(auth.get_current_user), 
+    # 2. Recommender 객체 주입
+    recommender: RecommenderService = Depends(get_recommender_service) 
+):
+    """
+    사용자의 즐겨찾기 목록을 기반으로 개인화 추천을 반환합니다.
+    """
+    if not recommender.is_loaded:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="추천 모델이 준비되지 않았습니다.")
+
+    # 3. DB에서 현재 사용자의 찜 목록을 가져옵니다.
+    favorites = crud.get_user_favorites(db, user_id=current_user.id)
+    if not favorites:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="즐겨찾기 목록이 비어있어 추천을 할 수 없습니다.")
+        
+    # 4. 찜 목록에서 '제목' 리스트만 추출
+    favorite_titles = [fav.title for fav in favorites]
+    
+    # 5. recommender에게 추천 제목 리스트를 요청합니다.
+    recommended_titles = recommender.get_personalized_titles(favorite_titles, top_n=10)
+    
+    if not recommended_titles:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="추천 결과를 찾지 못했습니다.")
+
+    # 6. 추천 제목 리스트에 대해 Jikan API 정보 보강을 수행합니다.
+    final_recommendations = []
+    
+    # Jikan API 호출 시 Rate Limit을 고려하여 순차적으로 호출합니다.
+    for title in recommended_titles:
+        # 단일 제목에 대한 보강된 정보를 가져옵니다. (Rate Limit 회피 로직이 recommender에 포함되어 있음)
+        enriched_data = await recommender.get_enriched_recommendations(title, top_n=1)
+        if enriched_data:
+            final_recommendations.append(enriched_data[0])
+            
+    if not final_recommendations:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jikan API로 정보를 보강하지 못했습니다.")
+
+    return {"recommendations": final_recommendations}

@@ -94,3 +94,24 @@ def get_favorites_count_by_anime_id(db: Session, anime_id: int):
     ).scalar() # scalar()는 숫자 값(count)만 반환
     
     return count
+
+def get_top_favorite_anime_ids(db: Session, limit: int = 20) -> list[tuple[int, int]]:
+    """
+    즐겨찾기 횟수를 기준으로 상위 N개의 (anime_id, count) 리스트를 반환합니다.
+    """
+    # SQL: 
+    # SELECT anime_id, COUNT(id) AS favorites_count
+    # FROM user_favorites 
+    # GROUP BY anime_id 
+    # ORDER BY favorites_count DESC 
+    # LIMIT :limit
+    
+    results = (
+        db.query(UserFavorite.anime_id, func.count(UserFavorite.id).label('favorites_count'))
+        .group_by(UserFavorite.anime_id)
+        .order_by(func.count(UserFavorite.id).desc())
+        .limit(limit)
+        .all() # 결과는 [(anime_id_1, count_1), (anime_id_2, count_2), ...] 형태
+    )
+    
+    return results

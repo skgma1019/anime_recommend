@@ -69,6 +69,7 @@ async def recommend_anime(
 # 🌟 (오류 수정: @app -> @router)
 @router.get("/search")
 def search_anime(
+
     keyword: str,
     # 🌟 (오류 수정: 'recommender_service' -> 'recommender' 객체 받기)
     recommender: RecommenderService = Depends(get_recommender_service)
@@ -84,3 +85,57 @@ def search_anime(
 
     # (팁: schemas.py에 응답 모델을 정의하면 더 좋습니다)
     return {"titles": matching_titles}
+
+@router.get("/popular", response_model=List[schemas.Anime])
+def get_popular_animes(
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    recommender: RecommenderService = Depends(get_recommender_service)
+):
+    """
+    즐겨찾기 횟수(DB)를 기준으로 인기 애니메이션 목록을 반환합니다.
+    """
+    if not recommender.is_loaded:
+        raise HTTPException(status_code=503, detail="모델이 아직 로드 중입니다.")
+        
+    # 1. DB에서 인기 있는 (anime_id, count) 리스트를 가져옵니다.
+    top_favorites = crud.get_top_favorite_anime_ids(db, limit=limit)
+    
+    if not top_favorites:
+        return [] # 찜 목록이 없으면 빈 리스트 반환
+
+    final_list = []
+    
+    # 2. 각 인기 ID에 대해 상세 정보와 카운트 정보를 합칩니다.
+    for anime_id, count in top_favorites:
+        # Recommender Service에서 상세 정보를 가져옵니다.
+        anime_data = recommender.get_anime_details_by_id(anime_id)
+        
+        if anime_data:
+            # 3. 찜 카운트 정보를 추가합니다.
+            anime_data["favorites_count"] = count
+            final_list.append(anime_data)
+            
+    return final_list
+
+# 상세 정보 엔드포인트
+@router.get("/{anime_id}", response_model=schemas.Anime)
+def read_anime_details(
+    anime_id: int,
+    recommender: RecommenderService = Depends(get_recommender_service),
+    db: Session = Depends(get_db)
+):
+    if not recommender.is_loaded:
+        raise HTTPException(status_code=503, detail="모델이 아직 로드 중 입니다.")
+    
+    anime_data = recommender.get_anime_details_by_id(anime_id)
+    if anime_data is None:
+        raise HTTPException(status_code=404, detail=f"Anime with ID {anime_id} not found.")
+
+    # 찜한 사람 수 계산 로직
+    favorite_count = crud.get_favorites_count_by_anime_id(db, anime_id=anime_id)
+    anime_data['favorites_count'] = favorite_count
+
+    # 2. 딕셔너리 형태의 데이터를 schemas.Anime 응답 모델로 반환합니다.
+    return anime_data
+

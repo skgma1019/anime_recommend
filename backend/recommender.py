@@ -126,3 +126,40 @@ class RecommenderService:
         
         # DataFrame을 Python 딕셔너리 리스트로 변환하여 반환
         return paginated_df.to_dict('records')
+    
+    def get_personalized_titles(self, anime_titles: list[str], top_n: int = 10) -> list[str]:
+        """
+        사용자가 찜한 여러 애니메이션 제목을 기반으로 추천 제목 리스트만 반환합니다.
+        (Jikan API 보강은 API 라우터 단에서 수행)
+        """
+        if self.df is None or not anime_titles:
+            return []
+
+        all_recs_titles = set()
+        
+        # 1. 찜 목록에 있는 각 애니에 대해 하이브리드 추천을 돌립니다.
+        for title in anime_titles:
+            # 기존 하이브리드 추천 함수 재활용
+            recs = self.get_hybrid_recommendations(title, top_n=20) 
+            if recs:
+                all_recs_titles.update(recs) # 중복 없이 추천 결과를 통합
+        
+        # 2. 찜 목록 원본은 제외하고 리스트로 변환
+        final_candidates = [
+            t for t in list(all_recs_titles) 
+            if t not in anime_titles
+        ]
+        
+        # 3. 상위 N개만 반환
+        return final_candidates[:top_n]
+    
+    # 애니 상세정보 반환
+    def get_anime_details_by_id(self, anime_id: int):
+        if self.df is None:
+            return None
+        result = self.df[self.df['anime_id'] == anime_id]
+
+        if not result.empty:
+            return result.iloc[0].to_dict()
+        
+        return None

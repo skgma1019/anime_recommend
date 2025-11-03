@@ -19,11 +19,20 @@ def load_all_models():
     # 1. 콘텐츠 기반 모델 로드 (anime-dataset-2023.csv)
     try:
         df = pd.read_csv('../csv/anime-dataset-2023.csv')
-        df.rename(columns={'Name': 'title', 'Synopsis': 'synopsis', 'Genres': 'genres', 'Image URL': 'image_url'}, inplace=True)
+        
+        df.rename(columns={
+            'MAL_ID': 'anime_id',
+            'Name': 'title',
+            'Synopsis': 'synopsis',
+            'Genres': 'genres',
+            'Score': 'score',
+            'Image URL': 'image_url'}, inplace=True)
+        df['score'] = pd.to_numeric(df['score'], errors='coerce')
+        df['score'] = df['score'].fillna(0.0)
         df.dropna(subset=['title', 'synopsis', 'genres',], inplace=True)
         df['image_url'] = df['image_url'].fillna(NO_IMAGE_URL)
         df.reset_index(drop=True, inplace=True)
-
+        
         df['synopsis'] = df['synopsis'].fillna('')
         df['genres'] = df['genres'].fillna('')
 
