@@ -95,7 +95,7 @@ class RecommenderService:
         for i, rec_title in enumerate(candidate_titles):
             # Jikan API Rate Limit을 피하기 위한 딜레이 (0.5초)
             if i > 0:
-                 await asyncio.sleep(0.5) 
+                await asyncio.sleep(0.5) 
             
             # jikan_client.py의 비동기 함수 호출
             enriched_data = await fetch_anime_details(rec_title)
