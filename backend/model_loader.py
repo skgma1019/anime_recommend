@@ -26,9 +26,12 @@ def load_all_models():
             'Synopsis': 'synopsis',
             'Genres': 'genres',
             'Score': 'score',
-            'Image URL': 'image_url'}, inplace=True)
+            'Image URL': 'image_url',
+            'Favorites': 'favorites'}, inplace=True)
         df['score'] = pd.to_numeric(df['score'], errors='coerce')
         df['score'] = df['score'].fillna(0.0)
+        df['favorites'] = pd.to_numeric(df['favorites'], errors='coerce')
+        df['favorites'] = df['favorites'].fillna(0).astype(int)
         df.dropna(subset=['title', 'synopsis', 'genres',], inplace=True)
         df['image_url'] = df['image_url'].fillna(NO_IMAGE_URL)
         df.reset_index(drop=True, inplace=True)

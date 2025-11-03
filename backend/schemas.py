@@ -1,6 +1,9 @@
 # schemas.py
 
 from pydantic import BaseModel, EmailStr
+# schemas.py (파일 상단)
+from pydantic import BaseModel, EmailStr
+from typing import List # 👈 [추가] 리스트 타입을 위해 import
 
 # --- 1. User 생성을 위한 입력 스키마 ---
 # (API로 '받을' 데이터 형태)
@@ -30,7 +33,7 @@ class UserUpdatePassword(BaseModel):
     new_password: str
 
 class Anime(BaseModel):
-    anime_id: int
+    anime_id: int | None = None
     title: str
     genres: str | None = None
     image_url: str | None = None
@@ -69,3 +72,7 @@ class Feedback(FeedbackBase):
 
     class Config:
         orm_mode = True
+
+# 개인화 추천 응답 모델 (user_router.py가 사용)
+class AnimeListResponse(BaseModel):
+    recommendations: List[Anime]

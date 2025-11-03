@@ -26,8 +26,7 @@ async def fetch_anime_details(title: str):
                 return {
                     "title": details.get('title'),
                     "image_url": details.get('images', {}).get('jpg', {}).get('image_url'),
-                    "score": details.get('score'),
-                    "mal_id": details.get('mal_id')
+                    "score": details.get('score')
                 }
         except Exception as e:
             # 오류가 나도 로그만 남기고 None 반환

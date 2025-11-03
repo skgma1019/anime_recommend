@@ -69,54 +69,67 @@ async def recommend_anime(
 # 🌟 (오류 수정: @app -> @router)
 @router.get("/search")
 def search_anime(
-
     keyword: str,
-    # 🌟 (오류 수정: 'recommender_service' -> 'recommender' 객체 받기)
     recommender: RecommenderService = Depends(get_recommender_service)
 ):
     if not recommender.is_loaded: 
         raise HTTPException(status_code=503, detail="서버가 초기화 중이거나 데이터 로딩에 실패했습니다.")
 
-    # 🌟 (오류 수정: 'recommender_service' -> 'recommender' 사용)
-    matching_titles = recommender.search_anime_titles(keyword=keyword)
+    # 🌟 [수정 1] 'search_anime_titles' -> 'search_anime_objects'로 변경
+    matching_animes: list[dict] = recommender.search_anime_objects(keyword=keyword)
     
-    if not matching_titles:
-        raise HTTPException(status_code=404, detail=f"'{keyword}' 키워드로 검색된 제목이 없습니다.")
+    if not matching_animes:
+        # (검색 결과가 없는 것은 404 에러가 아니라, 빈 배열을 반환하는 것이 더 좋습니다)
+        return [] # 빈 배열 반환
 
-    # (팁: schemas.py에 응답 모델을 정의하면 더 좋습니다)
-    return {"titles": matching_titles}
+    # 🌟 [수정 2] {"titles": ...} 객체가 아닌, '애니메이션 객체 배열' 자체를 반환
+    return matching_animes
+
+# anime_router.py (기존 함수를 삭제하고 이걸로 '대체')
 
 @router.get("/popular", response_model=List[schemas.Anime])
 def get_popular_animes(
     limit: int = 20,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db), # 👈 'db'는 찜 횟수 계산을 위해 남겨둡니다.
     recommender: RecommenderService = Depends(get_recommender_service)
 ):
     """
-    즐겨찾기 횟수(DB)를 기준으로 인기 애니메이션 목록을 반환합니다.
+    [수정됨] CSV(df)의 'favorites' 수(Jikan 찜 수)를 기준으로 인기 목록을 반환합니다.
     """
     if not recommender.is_loaded:
         raise HTTPException(status_code=503, detail="모델이 아직 로드 중입니다.")
         
-    # 1. DB에서 인기 있는 (anime_id, count) 리스트를 가져옵니다.
-    top_favorites = crud.get_top_favorite_anime_ids(db, limit=limit)
-    
-    if not top_favorites:
-        return [] # 찜 목록이 없으면 빈 리스트 반환
+    # 1. [핵심] recommender의 메인 df에 'favorites' 컬럼이 있는지 확인
+    # (model_loader.py에서 이 컬럼을 로드해야 합니다)
+    if 'favorites' in recommender.df.columns:
+        # 'favorites' 컬럼(Jikan 찜 수)을 기준으로 내림차순 정렬
+        popular_df = recommender.df.sort_values(by='favorites', ascending=False).head(limit)
+    else:
+        # 'favorites' 컬럼이 로드되지 않았다면, 'score' (점수)로 대체
+        print("⚠️ 'favorites' 컬럼이 df에 없어 'score' 기준으로 대체합니다.")
+        if 'score' in recommender.df.columns:
+            popular_df = recommender.df.sort_values(by='score', ascending=False).head(limit)
+        else:
+            # 둘 다 없으면 그냥 20개 반환 (데이터 로드 순)
+            popular_df = recommender.df.head(limit)
 
-    final_list = []
+    # 2. DataFrame을 딕셔너리 리스트로 변환
+    results = popular_df.to_dict('records')
     
-    # 2. 각 인기 ID에 대해 상세 정보와 카운트 정보를 합칩니다.
-    for anime_id, count in top_favorites:
-        # Recommender Service에서 상세 정보를 가져옵니다.
-        anime_data = recommender.get_anime_details_by_id(anime_id)
+    # 3. [개선] '우리 DB'의 찜 횟수('favorites_count')도 함께 조회하여 반환
+    # (Jikan API의 찜 수와 우리 서비스의 찜 수를 둘 다 보여줄 수 있음)
+    for anime_dict in results:
+        anime_id = anime_dict.get("anime_id")
         
-        if anime_data:
-            # 3. 찜 카운트 정보를 추가합니다.
-            anime_data["favorites_count"] = count
-            final_list.append(anime_data)
-            
-    return final_list
+        # crud.py를 호출하여 '우리 DB'의 찜 횟수 조회
+        count = crud.get_favorites_count_by_anime_id(db, anime_id=anime_id)
+        
+        # 'favorites_count'는 우리 DB 찜 횟수로 설정
+        anime_dict["favorites_count"] = count 
+        
+        # (참고: anime_dict['favorites']에는 Jikan API 찜 수가 이미 들어있음)
+
+    return results
 
 # 상세 정보 엔드포인트
 @router.get("/{anime_id}", response_model=schemas.Anime)

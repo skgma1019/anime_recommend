@@ -26,9 +26,10 @@ class RecommenderService:
         self.is_loaded = True
 
 
-    def search_anime_titles(self, keyword: str, top_n: int = 10):
+    def search_anime_objects(self, keyword: str, top_n: int = 20):
         """
-        데이터베이스에서 키워드를 포함하는 애니메이션 제목을 검색합니다.
+        데이터베이스에서 키워드를 포함하는 애니메이션 '객체 리스트'를 검색합니다.
+        (React가 .map()을 돌릴 수 있는 형식)
         """
         if self.df is None:
             return []
@@ -38,11 +39,15 @@ class RecommenderService:
         ]
 
         if not results.empty:
-            # CSV에 score 컬럼이 있다고 가정하고 점수순으로 정렬
+            # score 컬럼이 있다면 점수순으로 정렬
             if 'score' in results.columns:
-                 return results.sort_values(by='score', ascending=False)['title'].head(top_n).tolist()
+                sorted_results = results.sort_values(by='score', ascending=False).head(top_n)
             else:
-                 return results['title'].head(top_n).tolist()
+                sorted_results = results.head(top_n)
+            
+            # 🌟 [핵심]
+            # 'title' 리스트가 아닌, '객체' 리스트(to_dict('records'))를 반환합니다.
+            return sorted_results.to_dict('records')
         
         return []
 

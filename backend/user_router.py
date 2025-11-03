@@ -12,7 +12,9 @@ from auth import get_current_user
 from db import get_db, User
 from typing import List
 from recommender import RecommenderService
-from dependencies import get_recommender_service
+from dependencies import get_recommender_service# user_router.py (파일 상단)
+import asyncio  # 👈 [추가] 딜레이를 위한 asyncio
+from jikan_client import fetch_anime_details # 👈 [추가] Jikan 클라이언트
 # 2. 'app = FastAPI()' 대신 'APIRouter()'를 사용합니다.
 router = APIRouter()
 
@@ -148,6 +150,7 @@ def read_user_favorites(
     return crud.get_user_favorites(db, user_id=current_user.id)
 
 # 10. 즐겨찾기 삭제 엔드포인트
+# user_router.py (기존 함수를 '삭제'하고 '대체')
 @router.delete("/me/favorites/{anime_id}", response_model=schemas.UserFavorite)
 def delete_favorite_for_user(
     anime_id: int, # 1. URL 경로에서 anime_id 받기
@@ -166,17 +169,14 @@ def delete_favorite_for_user(
         
     # 4. CRUD를 통해 DB에서 삭제
     return crud.delete_user_favorite(db, db_favorite=db_favorite)
-
-@router.get("/me/recommendations") 
+@router.get("/me/recommendations", response_model=schemas.AnimeListResponse) # 👈 응답 모델 변경
 async def get_personalized_recommendations(
     db: Session = Depends(get_db),
-    # 1. 로그인한 사용자 확인
     current_user: User = Depends(auth.get_current_user), 
-    # 2. Recommender 객체 주입
     recommender: RecommenderService = Depends(get_recommender_service) 
 ):
     """
-    사용자의 즐겨찾기 목록을 기반으로 개인화 추천을 반환합니다.
+    사용자의 즐겨찾기 목록을 기반으로 개인화 추천을 반환합니다. (수정된 버전)
     """
     if not recommender.is_loaded:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="추천 모델이 준비되지 않았습니다.")
@@ -184,29 +184,39 @@ async def get_personalized_recommendations(
     # 3. DB에서 현재 사용자의 찜 목록을 가져옵니다.
     favorites = crud.get_user_favorites(db, user_id=current_user.id)
     if not favorites:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="즐겨찾기 목록이 비어있어 추천을 할 수 없습니다.")
+        return {"recommendations": []} # 👈 빈 목록이어도 404 대신 빈 배열 반환
         
     # 4. 찜 목록에서 '제목' 리스트만 추출
     favorite_titles = [fav.title for fav in favorites]
     
-    # 5. recommender에게 추천 제목 리스트를 요청합니다.
-    recommended_titles = recommender.get_personalized_titles(favorite_titles, top_n=10)
+    # 5. recommender에게 추천 제목 리스트를 요청합니다. (Jikan 보강 전)
+    recommended_titles = recommender.get_personalized_titles(favorite_titles, top_n=20)
     
     if not recommended_titles:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="추천 결과를 찾지 못했습니다.")
+        return {"recommendations": []} # 👈 추천 결과가 없어도 빈 배열 반환
 
-    # 6. 추천 제목 리스트에 대해 Jikan API 정보 보강을 수행합니다.
+    # 6. [수정됨] Jikan API 정보 보강을 '올바르게' 수행합니다.
     final_recommendations = []
     
-    # Jikan API 호출 시 Rate Limit을 고려하여 순차적으로 호출합니다.
-    for title in recommended_titles:
-        # 단일 제목에 대한 보강된 정보를 가져옵니다. (Rate Limit 회피 로직이 recommender에 포함되어 있음)
-        enriched_data = await recommender.get_enriched_recommendations(title, top_n=1)
+    # Jikan API Rate Limit(1초 3회)을 피하기 위해 0.5초 딜레이
+    for i, title in enumerate(recommended_titles):
+        
+        # 🌟 [핵심] 0.5초 딜레이 (첫 번째 요청도 포함!)
+        if i > 0: # 0.5초씩 쉬어줍니다.
+            await asyncio.sleep(0.5) 
+        
+        # 🌟 [핵심] 'recommender'가 아니라 'jikan_client'를 직접 호출
+        enriched_data = await fetch_anime_details(title)
+        
         if enriched_data:
-            final_recommendations.append(enriched_data[0])
+            final_recommendations.append(enriched_data)
+            
+        # 10개의 유효한 추천을 찾으면 중단
+        if len(final_recommendations) >= 10:
+            break
             
     if not final_recommendations:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jikan API로 정보를 보강하지 못했습니다.")
+        return {"recommendations": []} # 👈 Jikan 보강 실패 시 빈 배열 반환
 
     return {"recommendations": final_recommendations}
 
@@ -220,3 +230,6 @@ def create_feedback_for_user(
     현재 로그인한 사용자의 추천 피드백을 저장합니다.
     """
     return crud.create_user_feedback(db=db, feedback=feedback, user_id=current_user.id)
+
+# anime_router.py (기존 함수를 삭제하고 이걸로 '대체')
+

@@ -1,0 +1,306 @@
+.mypage {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.mypage-container {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.mypage-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 40px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.mypage-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 2rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.mypage-info {
+  flex: 1;
+}
+
+.mypage-email {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.mypage-stat {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.mypage-content {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 32px;
+}
+
+.mypage-section {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mypage-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mypage-btn {
+  padding: 14px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  text-align: left;
+}
+
+.mypage-btn.primary {
+  background: var(--primary);
+  color: white;
+}
+
+.mypage-btn.primary:hover {
+  background: var(--primary-dark);
+}
+
+.mypage-btn.logout {
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.mypage-btn.logout:hover {
+  background: var(--background);
+}
+
+.mypage-btn.delete {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--error);
+}
+
+.mypage-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.mypage-message {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 8px;
+  color: var(--primary-light);
+  font-size: 0.9375rem;
+}
+
+.password-change-section {
+  margin-top: 24px;
+  padding: 24px;
+  background: var(--background);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.password-change-section h4 {
+  font-size: 1rem;
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+}
+
+.password-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  outline: none;
+  margin-bottom: 16px;
+  transition: var(--transition);
+}
+
+.password-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.submit-btn {
+  flex: 1;
+  padding: 12px;
+  background: var(--primary);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancel-btn {
+  flex: 1;
+  padding: 12px;
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.cancel-btn:hover {
+  background: var(--surface);
+}
+
+.confirm-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  padding: 24px;
+}
+
+.confirm-content {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  max-width: 400px;
+  width: 100%;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xl);
+}
+
+.confirm-content h3 {
+  font-size: 1.5rem;
+  margin-bottom: 12px;
+}
+
+.confirm-content p {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.confirm-delete {
+  flex: 1;
+  padding: 12px;
+  background: var(--error);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.confirm-delete:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.confirm-delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.confirm-cancel {
+  flex: 1;
+  padding: 12px;
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.confirm-cancel:hover {
+  background: var(--surface);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .mypage-header {
+    padding: 24px;
+  }
+
+  .mypage-avatar {
+    width: 64px;
+    height: 64px;
+    font-size: 1.5rem;
+  }
+
+  .mypage-email {
+    font-size: 1.25rem;
+  }
+
+  .mypage-content {
+    padding: 24px;
+  }
+}
